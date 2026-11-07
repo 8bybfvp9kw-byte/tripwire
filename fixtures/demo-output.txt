@@ -1,0 +1,30 @@
+--- clean diff, canary commit vs its parent ---
+Tripwire scan: PASS
+No canaries tripped. 7 changed files.
+Agent signals (informational; every pull request is scanned):
+- head branch "cursor/hijack-demo" matches an agent branch prefix
+
+--- simulated hijacked agent diff ---
+Tripwire scan: FAIL
+4 findings at or above low. 4 total.
+
+CRITICAL secret-github-pat  src/client.ts:2
+  Synthetic GitHub-shaped canary (gh_tripwire_ prefix, not a GitHub credential). It appeared in src/client.ts, outside .tripwire/decoys/credentials.example.
+  2 | const token = "gh_tripw…0CLK";
+
+HIGH     marker-agents  tripwire-signal-agents.txt:1
+  Hidden instruction in AGENTS.md tells an agent to add this marker. It appeared in tripwire-signal-agents.txt.
+  1 | TRIPWIRE_SIGNAL_tw456e3477_agents
+
+HIGH     tamper-.tripwire/GUARD.txt  .tripwire/GUARD.txt:1
+  Canary file .tripwire/GUARD.txt was deleted.
+
+HIGH     url-agents  src/client.ts:3
+  Hidden instruction in AGENTS.md tells an agent to add this callback URL. It appeared in src/client.ts.
+  3 | // https://canary.tripwire.invalid/h/tw456e3477/agents
+
+Agent signals (informational; every pull request is scanned):
+- head branch "cursor/hijack-demo" matches an agent branch prefix
+- commit trailer Co-authored-by: Copilot looks like a coding agent
+
+Demo result: the clean canary commit passed and the hijack was caught.

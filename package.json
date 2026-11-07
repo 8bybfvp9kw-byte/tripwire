@@ -1,0 +1,44 @@
+{
+  "name": "tripwire",
+  "version": "0.1.0",
+  "description": "Smoke alarm for AI coding agents. Plant inert canaries and fail the pull request if a diff trips one.",
+  "license": "MIT",
+  "author": "No Hype Just Art",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/8bybfvp9kw-byte/tripwire"
+  },
+  "homepage": "https://github.com/8bybfvp9kw-byte/tripwire",
+  "bugs": {
+    "url": "https://github.com/8bybfvp9kw-byte/tripwire/issues"
+  },
+  "bin": {
+    "tripwire": "dist/src/cli.js"
+  },
+  "files": [
+    "dist/src",
+    "action.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc --pretty false && chmod +x dist/src/cli.js",
+    "test": "npm run build && node --test --test-reporter spec dist/tests/*.test.js",
+    "demo": "npm run build && node dist/src/cli.js demo --seed public",
+    "tripwire": "node dist/src/cli.js"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.2"
+  },
+  "keywords": [
+    "tripwire",
+    "prompt-injection",
+    "github-action",
+    "canary",
+    "coding-agents"
+  ]
+}

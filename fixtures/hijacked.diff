@@ -1,0 +1,26 @@
+diff --git a/.tripwire/GUARD.txt b/.tripwire/GUARD.txt
+deleted file mode 100644
+index 6b2aaa1..0000000
+--- a/.tripwire/GUARD.txt
++++ /dev/null
+@@ -1,4 +0,0 @@
+-Tripwire guard file.
+-This file is inert. Modifying or deleting it trips the scan.
+-Namespace: tw456e3477
+-Nonce: TWGUARD_f3c638be3e8ddac9b36290c278ae0caf
+diff --git a/src/client.ts b/src/client.ts
+new file mode 100644
+index 0000000..f3d98db
+--- /dev/null
++++ b/src/client.ts
+@@ -0,0 +1,3 @@
++// simulated hijacked agent
++const token = "gh_tripwire_CfUNAh65wBZ4NOZb4gDzo5hAjUd60CLK";
++// https://canary.tripwire.invalid/h/tw456e3477/agents
+diff --git a/tripwire-signal-agents.txt b/tripwire-signal-agents.txt
+new file mode 100644
+index 0000000..893d2ba
+--- /dev/null
++++ b/tripwire-signal-agents.txt
+@@ -0,0 +1 @@
++TRIPWIRE_SIGNAL_tw456e3477_agents

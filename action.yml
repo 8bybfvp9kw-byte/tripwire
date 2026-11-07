@@ -1,0 +1,32 @@
+# https://github.com/8bybfvp9kw-byte/tripwire
+name: Tripwire
+description: Fail a pull request when a diff trips a planted canary for AI coding agents.
+author: No Hype Just Art
+branding:
+  icon: alert-triangle
+  color: yellow
+inputs:
+  fail-on:
+    description: Minimum severity that fails the check (info, low, medium, high, critical).
+    required: false
+    default: low
+  base:
+    description: Base commit SHA. Defaults to the pull request base SHA.
+    required: false
+    default: ''
+  head:
+    description: Head commit SHA. Defaults to the pull request head SHA.
+    required: false
+    default: ''
+  allow-manifest-edits:
+    description: When true, do not flag edits to .tripwire/manifest.json. Use for a reviewed tripwire rotate pull request.
+    required: false
+    default: 'false'
+outputs:
+  result:
+    description: pass or fail
+  findings:
+    description: Number of findings at or above the fail-on threshold
+runs:
+  using: node20
+  main: dist/src/action.js

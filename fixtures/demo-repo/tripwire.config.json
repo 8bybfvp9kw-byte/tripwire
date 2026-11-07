@@ -1,0 +1,41 @@
+{
+  "version": 1,
+  "failOn": "low",
+  "allowManifestEdits": false,
+  "ignore": [
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "vendor/**",
+    "**/*.lock",
+    "package-lock.json"
+  ],
+  "ignoreSecretsInIgnoredPaths": false,
+  "placements": [
+    {
+      "path": ".tripwire/decoys/credentials.example",
+      "type": "secrets",
+      "id": "secrets"
+    },
+    {
+      "path": ".tripwire/GUARD.txt",
+      "type": "guard",
+      "id": "guard"
+    },
+    {
+      "path": "AGENTS.md",
+      "type": "instruction",
+      "id": "agents"
+    },
+    {
+      "path": "docs/onboarding.md",
+      "type": "instruction",
+      "id": "onboarding"
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE/bug_report.md",
+      "type": "instruction",
+      "id": "issue"
+    }
+  ]
+}
