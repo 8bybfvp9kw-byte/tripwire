@@ -33,6 +33,7 @@ describe('committed demo fixture', () => {
     assert.equal(report.result, 'fail');
     const ids = report.findings.map((finding) => finding.id).sort();
     assert.deepEqual(ids, [
+      'guard-files-changed',
       'marker-agents',
       'secret-github-pat',
       'tamper-.tripwire/GUARD.txt',

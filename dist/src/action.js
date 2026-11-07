@@ -64,17 +64,26 @@ function runAction(env, io = {
     }
     let code = 0;
     try {
-        const manifest = (0, manifest_1.readManifest)(env.workspace);
-        const config = (0, config_1.readConfig)(env.workspace);
+        const baseRef = pull?.base?.ref ?? '';
+        const remoteBase = baseRef ? `origin/${baseRef}` : '';
+        const baseTree = !env.inputs.base && remoteBase && (0, git_1.gitRefExists)(env.workspace, remoteBase) ? remoteBase : base;
+        const manifestText = (0, git_1.gitShow)(env.workspace, baseTree, manifest_1.MANIFEST_PATH);
+        if (manifestText === null) {
+            throw new types_1.TripwireError(`No canary manifest at ${baseTree}:${manifest_1.MANIFEST_PATH}. The action reads canaries from the base ref, not from the pull request.`);
+        }
+        const manifest = (0, manifest_1.parseManifestText)(manifestText);
+        const configText = (0, git_1.gitShow)(env.workspace, baseTree, config_1.CONFIG_FILENAME);
+        const config = configText === null ? (0, config_1.defaultConfig)() : (0, config_1.parseConfig)(JSON.parse(configText));
         const diffText = (0, git_1.diffRange)(env.workspace, `${base}...${head}`);
-        const commitText = (0, git_1.git)(env.workspace, ['log', '--format=%B%x00', `${base}...${head}`]).replace(/\0/g, '\n');
-        const authors = (0, git_1.git)(env.workspace, ['log', '--format=%an', `${base}...${head}`])
+        const commitText = (0, git_1.git)(env.workspace, ['log', '--format=%B%x00', `${base}..${head}`]).replace(/\0/g, '\n');
+        const authors = (0, git_1.git)(env.workspace, ['log', '--format=%an', `${base}..${head}`])
             .split('\n')
             .map((line) => line.trim())
             .filter((line) => line.length > 0);
         const extraTexts = [
             { path: 'pull_request.title', text: pull?.title ?? '' },
             { path: 'pull_request.body', text: pull?.body ?? '' },
+            { path: 'commit_messages', text: commitText },
         ].filter((item) => item.text.trim().length > 0);
         const report = (0, scan_1.scan)({
             manifest,

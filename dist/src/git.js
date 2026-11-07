@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DIFF_FLAGS = void 0;
 exports.git = git;
+exports.gitRefExists = gitRefExists;
 exports.gitShow = gitShow;
 exports.readWorktree = readWorktree;
 exports.diffRange = diffRange;
@@ -27,6 +28,18 @@ function git(cwd, args) {
         const error = err;
         const stderr = error.stderr ? error.stderr.toString().trim() : '';
         throw new types_1.TripwireError(stderr || error.message || `git ${args.join(' ')} failed`);
+    }
+}
+function gitRefExists(cwd, ref) {
+    try {
+        (0, child_process_1.execFileSync)('git', ['rev-parse', '--verify', '--quiet', ref], {
+            cwd,
+            stdio: 'ignore',
+        });
+        return true;
+    }
+    catch {
+        return false;
     }
 }
 function gitShow(cwd, ref, rel) {

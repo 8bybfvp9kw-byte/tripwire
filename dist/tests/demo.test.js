@@ -7,10 +7,10 @@ const strict_1 = __importDefault(require("node:assert/strict"));
 const node_test_1 = require("node:test");
 const demo_1 = require("../src/demo");
 (0, node_test_1.describe)('demo', () => {
-    (0, node_test_1.it)('passes the canary commit and catches the simulated hijack', () => {
+    (0, node_test_1.it)('flags the planting commit and catches the simulated hijack', () => {
         const result = (0, demo_1.runDemo)({ seed: 'public' });
         strict_1.default.equal(result.passed, true, result.text);
-        strict_1.default.match(result.text, /Tripwire scan: PASS/);
+        strict_1.default.match(result.text, /Guard files changed/);
         strict_1.default.match(result.text, /Tripwire scan: FAIL/);
         strict_1.default.match(result.text, /secret-github-pat/);
         strict_1.default.match(result.text, /marker-agents/);

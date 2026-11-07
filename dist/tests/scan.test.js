@@ -38,7 +38,7 @@ function token(root) {
     return match[0];
 }
 (0, node_test_1.describe)('scan', () => {
-    (0, node_test_1.it)('passes a diff that only adds the planted canary files', () => {
+    (0, node_test_1.it)('treats the commit that adds canaries as a guard-file change and not a secret leak', () => {
         const root = fresh();
         fs_1.default.writeFileSync(path_1.default.join(root, 'README.md'), '# App\n');
         (0, helpers_1.git)(root, ['add', 'README.md']);
@@ -52,8 +52,50 @@ function token(root) {
             diffText: diff,
             readFile: (rel) => read(root, rel),
         });
-        strict_1.default.equal(report.result, 'pass');
-        strict_1.default.equal(report.findings.length, 0);
+        strict_1.default.equal(report.result, 'fail');
+        strict_1.default.ok(report.findings.every((finding) => finding.id === 'guard-files-changed'));
+        strict_1.default.ok(report.findings.some((finding) => finding.path === '.tripwire/manifest.json'));
+        strict_1.default.equal(report.findings.some((finding) => finding.kind === 'secret'), false);
+    });
+    (0, node_test_1.it)('flags tripwire config and a workflow that references tripwire, not an unrelated workflow', () => {
+        const root = fresh();
+        const configDiff = [
+            'diff --git a/tripwire.config.json b/tripwire.config.json',
+            '--- a/tripwire.config.json',
+            '+++ b/tripwire.config.json',
+            '@@ -2,1 +2,1 @@',
+            '-  "failOn": "low",',
+            '+  "failOn": "critical",',
+            'diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml',
+            '--- a/.github/workflows/ci.yml',
+            '+++ b/.github/workflows/ci.yml',
+            '@@ -1,1 +1,1 @@',
+            '-name: ci',
+            '+name: tests',
+            'diff --git a/.github/workflows/tripwire.yml b/.github/workflows/tripwire.yml',
+            '--- a/.github/workflows/tripwire.yml',
+            '+++ b/.github/workflows/tripwire.yml',
+            '@@ -1,1 +1,1 @@',
+            '-          - uses: 8bybfvp9kw-byte/tripwire@v1',
+            '+          - uses: 8bybfvp9kw-byte/tripwire@v1',
+            '+            with:',
+            '+              fail-on: critical',
+            '',
+        ].join('\n');
+        const report = (0, scan_1.scan)({
+            manifest: (0, manifest_1.readManifest)(root),
+            config: (0, config_1.readConfig)(root),
+            diffText: configDiff,
+            allowManifestEdits: true,
+            readFile: (rel) => read(root, rel),
+        });
+        const paths = report.findings.filter((finding) => finding.id === 'guard-files-changed').map((finding) => finding.path);
+        strict_1.default.ok(paths.includes('tripwire.config.json'));
+        strict_1.default.ok(paths.includes('.github/workflows/tripwire.yml'));
+        strict_1.default.equal(paths.includes('.github/workflows/ci.yml'), false);
+        strict_1.default.equal(report.findings.every((finding) => finding.severity === 'high' || finding.severity === 'critical'), true);
+        strict_1.default.match(report.findings[0]?.message ?? '', /Guard files changed/);
+        strict_1.default.equal(report.result, 'fail');
     });
     (0, node_test_1.it)('flags a copied GitHub canary with the line and a redacted value', () => {
         const root = fresh();

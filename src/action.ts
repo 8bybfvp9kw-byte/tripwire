@@ -1,7 +1,7 @@
 import fs from 'fs';
-import { readConfig } from './config';
-import { diffRange, git, gitShow } from './git';
-import { readManifest } from './manifest';
+import { parseConfig, defaultConfig, CONFIG_FILENAME } from './config';
+import { diffRange, git, gitRefExists, gitShow } from './git';
+import { MANIFEST_PATH, parseManifestText } from './manifest';
 import { renderAnnotations, renderSummary, renderText } from './report';
 import { scan } from './scan';
 import { TripwireError, parseSeverity } from './types';
@@ -90,17 +90,29 @@ export function runAction(env: ActionEnv, io: ActionIo = {
   }
   let code = 0;
   try {
-    const manifest = readManifest(env.workspace);
-    const config = readConfig(env.workspace);
+    const baseRef = pull?.base?.ref ?? '';
+    const remoteBase = baseRef ? `origin/${baseRef}` : '';
+    const baseTree =
+      !env.inputs.base && remoteBase && gitRefExists(env.workspace, remoteBase) ? remoteBase : base;
+    const manifestText = gitShow(env.workspace, baseTree, MANIFEST_PATH);
+    if (manifestText === null) {
+      throw new TripwireError(
+        `No canary manifest at ${baseTree}:${MANIFEST_PATH}. The action reads canaries from the base ref, not from the pull request.`,
+      );
+    }
+    const manifest = parseManifestText(manifestText);
+    const configText = gitShow(env.workspace, baseTree, CONFIG_FILENAME);
+    const config = configText === null ? defaultConfig() : parseConfig(JSON.parse(configText) as unknown);
     const diffText = diffRange(env.workspace, `${base}...${head}`);
-    const commitText = git(env.workspace, ['log', '--format=%B%x00', `${base}...${head}`]).replace(/\0/g, '\n');
-    const authors = git(env.workspace, ['log', '--format=%an', `${base}...${head}`])
+    const commitText = git(env.workspace, ['log', '--format=%B%x00', `${base}..${head}`]).replace(/\0/g, '\n');
+    const authors = git(env.workspace, ['log', '--format=%an', `${base}..${head}`])
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => line.length > 0);
     const extraTexts = [
       { path: 'pull_request.title', text: pull?.title ?? '' },
       { path: 'pull_request.body', text: pull?.body ?? '' },
+      { path: 'commit_messages', text: commitText },
     ].filter((item) => item.text.trim().length > 0);
     const report = scan({
       manifest,

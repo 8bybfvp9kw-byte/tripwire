@@ -86,21 +86,23 @@ function runDemo(options = {}) {
                 commitText: 'Co-authored-by: Copilot',
             },
         });
-        const want = ['secret-github-pat', 'marker-agents', 'url-agents', 'tamper-.tripwire/GUARD.txt'];
+        const want = ['secret-github-pat', 'marker-agents', 'url-agents', 'tamper-.tripwire/GUARD.txt', 'guard-files-changed'];
         const ids = new Set(hijack.findings.map((finding) => finding.id));
         const missing = want.filter((id) => !ids.has(id));
-        const cleanOk = clean.result === 'pass';
+        const cleanIds = new Set(clean.findings.map((finding) => finding.id));
+        const cleanLeak = [...cleanIds].some((id) => id.startsWith('secret-') || id.startsWith('marker-') || id.startsWith('url-'));
+        const cleanOk = cleanIds.has('guard-files-changed') && !cleanLeak;
         const passed = cleanOk && hijack.result === 'fail' && missing.length === 0;
         const text = [
-            '--- clean diff, canary commit vs its parent ---',
+            '--- canary planting commit vs its parent ---',
             (0, report_1.renderText)(clean).trimEnd(),
             '',
             '--- simulated hijacked agent diff ---',
             (0, report_1.renderText)(hijack).trimEnd(),
             '',
             passed
-                ? 'Demo result: the clean canary commit passed and the hijack was caught.'
-                : `Demo result: expected the hijack to trip ${want.join(', ')}. Missing: ${missing.join(', ') || 'none'}. Clean pass: ${cleanOk}.`,
+                ? 'Demo result: planting canaries is reported as a guard-file change, and the hijack was caught.'
+                : `Demo result: expected the hijack to trip ${want.join(', ')}. Missing: ${missing.join(', ') || 'none'}. Planting commit flagged guard files: ${cleanOk}.`,
             '',
         ].join('\n');
         if (options.emitDir) {

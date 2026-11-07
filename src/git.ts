@@ -20,6 +20,18 @@ export function git(cwd: string, args: string[]): string {
   }
 }
 
+export function gitRefExists(cwd: string, ref: string): boolean {
+  try {
+    execFileSync('git', ['rev-parse', '--verify', '--quiet', ref], {
+      cwd,
+      stdio: 'ignore',
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function gitShow(cwd: string, ref: string, rel: string): string | null {
   const spec = `${ref}:${rel.replace(/\\/g, '/')}`;
   try {

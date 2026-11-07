@@ -15,6 +15,51 @@ function allCanaries(manifest) {
 function diffFor(files, plantedPath) {
     return files.find((file) => file.path === plantedPath || file.oldPath === plantedPath);
 }
+function posixPath(filePath) {
+    return filePath.replace(/\\/g, '/');
+}
+function isTripwireGuardPath(filePath) {
+    const path = posixPath(filePath);
+    return path === '.tripwire' || path.startsWith('.tripwire/') || path === 'tripwire.config.json' || path.endsWith('/tripwire.config.json');
+}
+function isWorkflowPath(filePath) {
+    return posixPath(filePath).startsWith('.github/workflows/');
+}
+function workflowReferencesTripwire(file, readFile) {
+    const hunk = [...file.addedLines, ...file.deletedLines].some((line) => /tripwire/i.test(line.text));
+    if (hunk)
+        return true;
+    if (!readFile)
+        return false;
+    for (const candidate of [file.path, file.oldPath]) {
+        if (!candidate || !isWorkflowPath(candidate))
+            continue;
+        const text = readFile(candidate);
+        if (text && /tripwire/i.test(text))
+            return true;
+    }
+    return false;
+}
+function guardFileFindings(files, readFile) {
+    const findings = [];
+    for (const file of files) {
+        const paths = [file.path, file.oldPath].filter((value) => Boolean(value) && value !== '/dev/null');
+        const guard = paths.some(isTripwireGuardPath);
+        const workflow = paths.some(isWorkflowPath) && workflowReferencesTripwire(file, readFile);
+        if (!guard && !workflow)
+            continue;
+        const path = file.status === 'deleted' && file.oldPath ? file.oldPath : file.path;
+        findings.push({
+            id: 'guard-files-changed',
+            severity: 'high',
+            kind: 'tamper',
+            path,
+            line: file.firstChangeLine || 1,
+            message: 'Guard files changed. A pull request cannot edit Tripwire canaries, tripwire.config.json, or a workflow that runs Tripwire.',
+        });
+    }
+    return findings;
+}
 function isExpected(canary, filePath, line, readFile) {
     if (canary.plantedPaths.length === 0)
         return false;
@@ -193,6 +238,8 @@ function scan(input) {
             });
         }
     }
+    for (const finding of guardFileFindings(diffFiles, input.readFile))
+        pushFinding(findings, finding);
     const manifestDiff = diffFor(diffFiles, manifest_1.MANIFEST_PATH);
     if (manifestDiff && manifestDiff.status === 'deleted') {
         pushFinding(findings, {

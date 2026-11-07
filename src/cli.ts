@@ -191,11 +191,13 @@ function cmdScan(flags: Flags): number {
       branch = undefined;
     }
   }
+  const extraTexts = commitText.trim() ? [{ path: 'commit_messages', text: commitText }] : [];
   const report = scan({
     manifest,
     config,
     diffText,
     readFile,
+    extraTexts,
     allowManifestEdits: flags.values.get('allow-manifest-edits') === true ? true : undefined,
     failOn: flagString(flags, 'fail-on'),
     agent: {

@@ -76,13 +76,15 @@ The command exits 1.
 
 `tripwire init` writes three kinds of canary, plus `tripwire.config.json` and `.tripwire/manifest.json`. The manifest stores SHA-256 hashes of the canary values, not the values themselves.
 
+The GitHub Action does not read that manifest from the pull request. It loads `tripwire.config.json` and `.tripwire/manifest.json` with `git show origin/<base>:path`. A pull request that edits `.tripwire/**`, `tripwire.config.json`, or a workflow that mentions Tripwire is a high finding, `Guard files changed`, and the pull request cannot turn that finding off.
+
 - **Decoy secrets** in `.tripwire/decoys/credentials.example`. Unique `gh_tripwire_`, `sk_tripwire_`, `aws_tripwire_`, and `aws_tripwire_secret_` values. They are not GitHub, Stripe, or AWS credentials, and they do not use those providers' key prefixes. A diff that copies one into any other file is `critical`.
 - **Instruction canaries** in `AGENTS.md`, `docs/onboarding.md`, and `.github/ISSUE_TEMPLATE/bug_report.md`. Each is an HTML comment between `tripwire:start` and `tripwire:end` markers. It tells an agent to add a marker line and a URL on `canary.tripwire.invalid`. It also says not to send a request. If that marker or URL shows up outside the block, the finding is `high`.
 - **A guard file**, `.tripwire/GUARD.txt`. Deleting it, renaming it, or changing its bytes is `high`. Editing the rest of `AGENTS.md` is not. Editing the canary block is.
 
-`tripwire scan` reads a unified diff. With no flags it compares the worktree to `HEAD`. `--range base...head` is what the action runs. Added lines are matched by the tripwire prefix and then by hash, so an unrelated string does not alert. Secret values are redacted in the report. The line number is not.
+`tripwire scan` reads a unified diff. With no flags it compares the worktree to `HEAD` and does not see a commit message. `--range base..head` scans that diff and the commit messages in the range. The Action scans the diff (`base...head`), the pull request title, the pull request body, and `git log base..head`. Added lines are matched by the tripwire prefix and then by hash, so an unrelated string does not alert. Secret values are redacted in the report. The line number is not.
 
-`tripwire rotate` replaces the values and keeps the previous hashes armed, so a leak of the old secret still fails. That commit also changes the manifest, which is itself a finding until a maintainer bypasses the check or sets `allow-manifest-edits`. `tripwire remove` deletes managed files and strips the blocks. It leaves `tripwire.config.json` in place.
+`tripwire rotate` replaces the values and keeps the previous hashes armed, so a leak of the old secret still fails. That commit changes files under `.tripwire/`, so the Action reports `Guard files changed` until a maintainer bypasses the check. `tripwire remove` deletes managed files and strips the blocks. It leaves `tripwire.config.json` in place.
 
 Put `.tripwire/**` and `tripwire.config.json` in `CODEOWNERS`. An agent that understands the manifest can try to disarm the alarm by editing it. The manifest edit is the signal, and a person should be the one who merges it.
 
@@ -123,6 +125,16 @@ tripwire demo [--seed public] [--emit <dir>]
 
 `ignore` drops marker, URL, and guard-noise hits in generated files. A canary secret in an ignored path still fails the check, unless you set `ignoreSecretsInIgnoredPaths` to true. Write the config before `init` if you want different files. `init` will not clobber an existing file that it does not own.
 
+## Threat model and limits
+
+Tripwire detects only its own planted signals. It does not look for malicious behavior in general: no backdoor patterns, no review of what an agent was asked to do, no judgment that a change is safe.
+
+A passing check does not prove an agent is safe. It means this diff, this pull request title and body, and these commit messages did not contain a planted canary and did not edit the guard files.
+
+An agent that ignores a planted instruction is not shown to ignore a different one. The canary is one hidden instruction. A pass only says that particular instruction was not followed in the places Tripwire scans.
+
+What the Action scans: the pull request diff, the title, the body, and commit messages from `git log base..head`. What it does not scan: network calls, encoded or split copies of a canary, files outside the diff, or a pull request that deletes the workflow so the check never runs. Canaries and config are read from `origin/<base>`, so the pull request cannot swap in a weaker manifest. Editing those files is itself a finding. Merging that edit still takes a person.
+
 ## FAQ
 
 ### Is this safe?
@@ -135,13 +147,13 @@ The credentials file says, in the first lines, that the values are synthetic. `t
 
 ### Limits and false negatives
 
-A pass means this diff did not trip the alarm. It does not mean the agent was safe.
+See [Threat model and limits](#threat-model-and-limits). A pass is not a safety proof.
 
-Tripwire does not see a secret that leaves the machine without being written into the diff, the pull request body, or a commit message. It does not reassemble a value that was split across lines, base64-encoded, or lightly edited. It does not scan your network. An attacker who has read the canary file can tell the agent to avoid those exact strings. Unique values raise that bar, and they do not close it. A model that carefully ignores every hidden instruction will not trip the canary, and it will also ignore the attacker's instruction. That is the case this alarm is built for, and it is not a proof.
+Tripwire does not reassemble a value that was split across lines, base64-encoded, or lightly edited. It does not scan the network. Someone who has read the canary file can tell an agent to avoid those exact strings. Unique values raise that bar. They do not close it.
 
 ### False positives
 
-Matching is exact, by hash, so a tutorial that pastes the AWS documentation example does not alert. Editing `AGENTS.md` outside the `tripwire:start` / `tripwire:end` block does not alert. Editing the block does. `tripwire rotate` changes the manifest on purpose and the check fails until a person lets it through. A build that commits a copy of the credentials file will alert, including under `dist/`, because secrets are not silenced by `ignore` unless you opt in.
+Matching is exact, by hash, so a tutorial that pastes the AWS documentation example does not alert. Editing `AGENTS.md` outside the `tripwire:start` / `tripwire:end` block does not alert. Editing the block does. `tripwire rotate` changes `.tripwire/` on purpose and the check fails until a person lets it through. A build that commits a copy of the credentials file will alert, including under `dist/`, because secrets are not silenced by `ignore` unless you opt in.
 
 ### Does it only scan bot pull requests?
 

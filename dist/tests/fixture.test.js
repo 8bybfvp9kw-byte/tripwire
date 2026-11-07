@@ -37,6 +37,7 @@ const FIXTURE = path_1.default.join(ROOT, 'fixtures', 'demo-repo');
         strict_1.default.equal(report.result, 'fail');
         const ids = report.findings.map((finding) => finding.id).sort();
         strict_1.default.deepEqual(ids, [
+            'guard-files-changed',
             'marker-agents',
             'secret-github-pat',
             'tamper-.tripwire/GUARD.txt',

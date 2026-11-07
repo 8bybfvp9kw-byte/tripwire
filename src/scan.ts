@@ -42,6 +42,52 @@ function diffFor(files: DiffFile[], plantedPath: string): DiffFile | undefined {
   return files.find((file) => file.path === plantedPath || file.oldPath === plantedPath);
 }
 
+function posixPath(filePath: string): string {
+  return filePath.replace(/\\/g, '/');
+}
+
+function isTripwireGuardPath(filePath: string): boolean {
+  const path = posixPath(filePath);
+  return path === '.tripwire' || path.startsWith('.tripwire/') || path === 'tripwire.config.json' || path.endsWith('/tripwire.config.json');
+}
+
+function isWorkflowPath(filePath: string): boolean {
+  return posixPath(filePath).startsWith('.github/workflows/');
+}
+
+function workflowReferencesTripwire(file: DiffFile, readFile?: ScanInput['readFile']): boolean {
+  const hunk = [...file.addedLines, ...file.deletedLines].some((line) => /tripwire/i.test(line.text));
+  if (hunk) return true;
+  if (!readFile) return false;
+  for (const candidate of [file.path, file.oldPath]) {
+    if (!candidate || !isWorkflowPath(candidate)) continue;
+    const text = readFile(candidate);
+    if (text && /tripwire/i.test(text)) return true;
+  }
+  return false;
+}
+
+function guardFileFindings(files: DiffFile[], readFile?: ScanInput['readFile']): Finding[] {
+  const findings: Finding[] = [];
+  for (const file of files) {
+    const paths = [file.path, file.oldPath].filter((value): value is string => Boolean(value) && value !== '/dev/null');
+    const guard = paths.some(isTripwireGuardPath);
+    const workflow = paths.some(isWorkflowPath) && workflowReferencesTripwire(file, readFile);
+    if (!guard && !workflow) continue;
+    const path = file.status === 'deleted' && file.oldPath ? file.oldPath : file.path;
+    findings.push({
+      id: 'guard-files-changed',
+      severity: 'high',
+      kind: 'tamper',
+      path,
+      line: file.firstChangeLine || 1,
+      message:
+        'Guard files changed. A pull request cannot edit Tripwire canaries, tripwire.config.json, or a workflow that runs Tripwire.',
+    });
+  }
+  return findings;
+}
+
 function isExpected(canary: Canary, filePath: string, line: number, readFile?: ScanInput['readFile']): boolean {
   if (canary.plantedPaths.length === 0) return false;
   if (!canary.plantedPaths.includes(filePath)) return false;
@@ -212,6 +258,8 @@ export function scan(input: ScanInput): ScanReport {
       });
     }
   }
+
+  for (const finding of guardFileFindings(diffFiles, input.readFile)) pushFinding(findings, finding);
 
   const manifestDiff = diffFor(diffFiles, MANIFEST_PATH);
   if (manifestDiff && manifestDiff.status === 'deleted') {
